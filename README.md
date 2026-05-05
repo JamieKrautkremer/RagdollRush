@@ -1,1 +1,121 @@
-# RagdollRush
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ragdoll Rush Twitch OAuth Callback</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0f1419;
+        color: #e8eef5;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main {
+        width: min(560px, calc(100vw - 32px));
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 16px;
+        background: rgba(22, 31, 40, 0.95);
+        padding: 20px 22px;
+        line-height: 1.45;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 20px;
+      }
+      p {
+        margin: 0;
+        color: rgba(232, 238, 245, 0.85);
+      }
+      code {
+        color: #99ffbf;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1 id="title">Completing Twitch login...</h1>
+      <p id="message">You can close this tab after the app receives your login token.</p>
+    </main>
+    <script>
+      (function () {
+        const APP_ORIGINS = [
+          "https://www.viverse.com/FvT3iry",
+          "http://localhost:5173",
+          "http://127.0.0.1:5173"
+        ];
+
+        const titleEl = document.getElementById("title");
+        const msgEl = document.getElementById("message");
+        const setStatus = (title, message) => {
+          if (titleEl) titleEl.textContent = title;
+          if (msgEl) msgEl.textContent = message;
+        };
+
+        const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+        const payload = {
+          type: "TWITCH_LOGIN_SUCCESS",
+          token: params.get("access_token") || undefined,
+          state: params.get("state") || undefined,
+          expires_in: params.get("expires_in") || undefined,
+          scope: params.get("scope") || undefined,
+          error: params.get("error") || undefined,
+          error_description: params.get("error_description") || undefined
+        };
+
+        if (!window.opener) {
+          setStatus(
+            "No opener window",
+            "This callback tab was opened directly. Return to the game and try Connect Twitch again."
+          );
+          return;
+        }
+
+        // Post to known app origins first; wildcard as a last fallback.
+        for (const origin of APP_ORIGINS) {
+          try {
+            window.opener.postMessage(payload, origin);
+          } catch (_) {
+            // ignore
+          }
+        }
+        try {
+          window.opener.postMessage(payload, "*");
+        } catch (_) {
+          // ignore
+        }
+
+        if (payload.error) {
+          setStatus(
+            "Twitch login failed",
+            payload.error_description || payload.error || "Return to the game and try again."
+          );
+          return;
+        }
+
+        if (!payload.token || !payload.state) {
+          setStatus(
+            "Callback missing fields",
+            "Expected access_token and state in URL fragment. Verify the Twitch redirect URI setup."
+          );
+          return;
+        }
+
+        setStatus("Twitch login completed", "You can close this tab and return to the game.");
+        setTimeout(() => {
+          try {
+            window.close();
+          } catch (_) {
+            // ignore
+          }
+        }, 250);
+      })();
+    </script>
+  </body>
+</html>
