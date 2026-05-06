@@ -45,12 +45,13 @@
     </main>
     <script>
       (function () {
-        const APP_ORIGINS = [
-          "https://www.viverse.com/FvT3iry",
-          "http://localhost:5173",
-          "http://127.0.0.1:5173"
-        ];
-
+        /**
+         * Twitch redirects here with #access_token=...&state=... (implicit grant).
+         * Forward ONE postMessage to the opener — duplicates caused "Invalid OAuth state"
+         * in the game after the first handler consumed the CSRF state from storage.
+         *
+         * Target '*': the game validates sender origin against VITE_TWITCH_REDIRECT_URI (GitHub Pages).
+         */
         const titleEl = document.getElementById("title");
         const msgEl = document.getElementById("message");
         const setStatus = (title, message) => {
@@ -66,35 +67,28 @@
           expires_in: params.get("expires_in") || undefined,
           scope: params.get("scope") || undefined,
           error: params.get("error") || undefined,
-          error_description: params.get("error_description") || undefined
+          error_description: params.get("error_description") || undefined,
         };
 
         if (!window.opener) {
           setStatus(
             "No opener window",
-            "This callback tab was opened directly. Return to the game and try Connect Twitch again."
+            "Open Twitch login from the game (Connect Twitch). If this persists, allow the OAuth tab to keep a connection to the game tab.",
           );
           return;
         }
 
-        // Post to known app origins first; wildcard as a last fallback.
-        for (const origin of APP_ORIGINS) {
-          try {
-            window.opener.postMessage(payload, origin);
-          } catch (_) {
-            // ignore
-          }
-        }
         try {
           window.opener.postMessage(payload, "*");
         } catch (_) {
-          // ignore
+          setStatus("Could not notify the game", "Try closing this tab and use Connect Twitch again.");
+          return;
         }
 
         if (payload.error) {
           setStatus(
             "Twitch login failed",
-            payload.error_description || payload.error || "Return to the game and try again."
+            payload.error_description || payload.error || "Return to the game and try again.",
           );
           return;
         }
@@ -102,7 +96,7 @@
         if (!payload.token || !payload.state) {
           setStatus(
             "Callback missing fields",
-            "Expected access_token and state in URL fragment. Verify the Twitch redirect URI setup."
+            "Expected access_token and state in the URL fragment. Check Twitch OAuth Redirect URLs match this page exactly.",
           );
           return;
         }
